@@ -1,0 +1,6 @@
+{
+  "name": "Cloud PRO - Reseller Web Hosting Management Server",
+  "description": "Enterprise-grade multi-tenant web hosting server management platform for Admins, Resellers, and Customers with automated provisioning, DNS, billing, and server monitoring.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
