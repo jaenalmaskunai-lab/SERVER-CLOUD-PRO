@@ -48,8 +48,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setUser(data.user);
       setWhiteLabel(data.whiteLabel);
     } catch {
-      // Auto fallback switch to admin persona for seamless demo
-      await switchRole('admin');
+      setUser(null);
+      setWhiteLabel(null);
     }
   };
 
@@ -97,7 +97,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const logout = () => {
     clearStoredToken();
-    switchRole('admin');
+    setUser(null);
+    setWhiteLabel(null);
   };
 
   const updateWhiteLabel = async (settings: Partial<ResellerSettings>) => {

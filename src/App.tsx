@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { NotificationProvider } from './context/NotificationContext';
+import { ThemeProvider, useTheme } from './context/ThemeContext';
 import { Sidebar } from './components/layout/Sidebar';
 import { Header } from './components/layout/Header';
 
 // Views
+import { LoginView } from './views/LoginView';
 import { DashboardView } from './views/DashboardView';
 import { ResellersView } from './views/ResellersView';
 import { CustomersView } from './views/CustomersView';
@@ -24,6 +26,7 @@ import { DepositBalanceModal } from './components/modals/DepositBalanceModal';
 
 function MainApp() {
   const { user, loading } = useAuth();
+  const { isLight } = useTheme();
   const [currentView, setCurrentView] = useState<string>('dashboard');
   const [sidebarOpen, setSidebarOpen] = useState<boolean>(false);
 
@@ -33,11 +36,18 @@ function MainApp() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center text-slate-400 space-y-3">
-        <div className="w-10 h-10 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
-        <span className="text-xs font-mono">Memuat Sistem Cloud PRO...</span>
+      <div className={`min-h-screen flex flex-col items-center justify-center space-y-3 ${
+        isLight ? 'bg-slate-50 text-slate-600' : 'bg-slate-950 text-slate-400'
+      }`}>
+        <div className="w-10 h-10 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
+        <span className="text-xs font-mono font-medium">Memuat Sistem Cloud PRO Hosting...</span>
       </div>
     );
+  }
+
+  // If user is not authenticated, render authentic Server Login Portal
+  if (!user) {
+    return <LoginView onLoginSuccess={() => setCurrentView('dashboard')} />;
   }
 
   const renderCurrentView = () => {
@@ -84,7 +94,9 @@ function MainApp() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex">
+    <div className={`min-h-screen flex transition-colors duration-200 ${
+      isLight ? 'bg-slate-50 text-slate-900' : 'bg-slate-950 text-slate-100'
+    }`}>
       {/* Sidebar Navigation */}
       <Sidebar
         currentView={currentView}
@@ -131,10 +143,12 @@ function MainApp() {
 
 export default function App() {
   return (
-    <AuthProvider>
-      <NotificationProvider>
-        <MainApp />
-      </NotificationProvider>
-    </AuthProvider>
+    <ThemeProvider>
+      <AuthProvider>
+        <NotificationProvider>
+          <MainApp />
+        </NotificationProvider>
+      </AuthProvider>
+    </ThemeProvider>
   );
 }
