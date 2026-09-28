@@ -324,11 +324,11 @@ export const CPanelDashboardModal: React.FC<CPanelDashboardModalProps> = ({
         },
         {
           id: 'php-selector',
-          name: 'MultiPHP Manager',
-          desc: `Ganti versi PHP (saat ini: PHP ${account.php_version}) & ekstensi`,
+          name: 'MultiPHP Manager & INI',
+          desc: `Ganti runtime PHP ${account.php_version}, aktifkan ionCube Loader, dan konfigurasi php.ini`,
           icon: Code,
           action: () => onOpenSubModal('php'),
-          badge: `PHP ${account.php_version}`
+          badge: 'ionCube Ready'
         }
       ]
     },

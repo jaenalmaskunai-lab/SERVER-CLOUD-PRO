@@ -240,23 +240,113 @@ router.post('/:id/toggle-status', requireRole(['admin', 'reseller']), (req: any,
   res.json({ success: true, status: newStatus });
 });
 
-// Change PHP Version
-router.post('/:id/php-version', (req: any, res) => {
+// Get PHP Configuration & Options
+router.get('/:id/php-config', (req: any, res) => {
   const user = req.user;
   const id = Number(req.params.id);
-  const { php_version, extensions } = req.body;
 
   const account = queryOne<any>('SELECT * FROM hosting_accounts WHERE id = ?', [id]);
   if (!account) return res.status(404).json({ error: 'Akun tidak ditemukan' });
 
   if (user.role === 'customer' && account.customer_id !== user.id) return res.status(403).json({ error: 'Akses ditolak' });
+  if (user.role === 'reseller' && account.reseller_id !== user.id) return res.status(403).json({ error: 'Akses ditolak' });
+
+  let parsedExts: string[] = [];
+  try {
+    parsedExts = JSON.parse(account.php_extensions || '[]');
+  } catch {
+    parsedExts = ['curl', 'gd', 'mbstring', 'openssl', 'pdo_mysql', 'zip', 'opcache', 'ioncube', 'redis', 'imagick'];
+  }
+
+  // Read .user.ini if present or provide defaults
+  const { readFile } = require('../services/fileManager');
+  let userIniContent = '';
+  try {
+    const f = readFile(id, '/public_html/.user.ini');
+    userIniContent = f.content || '';
+  } catch {
+    userIniContent = `; cPanel PHP Configuration for ${account.domain}
+upload_max_filesize = 256M
+post_max_size = 256M
+memory_limit = 512M
+max_execution_time = 300
+max_input_time = 300
+max_input_vars = 5000
+allow_url_fopen = On
+display_errors = Off
+`;
+  }
+
+  const defaultOptions = {
+    upload_max_filesize: '256M',
+    post_max_size: '256M',
+    memory_limit: '512M',
+    max_execution_time: 300,
+    max_input_time: 300,
+    max_input_vars: 5000,
+    allow_url_fopen: true,
+    display_errors: false
+  };
+
+  res.json({
+    php_version: account.php_version || '8.3',
+    extensions: parsedExts,
+    options: defaultOptions,
+    ini_content: userIniContent,
+    ioncube_loaded: parsedExts.includes('ioncube'),
+    opcache_loaded: parsedExts.includes('opcache')
+  });
+});
+
+// Change PHP Version
+router.post('/:id/php-version', (req: any, res) => {
+  const user = req.user;
+  const id = Number(req.params.id);
+  const { php_version, extensions, options, ini_content } = req.body;
+
+  const account = queryOne<any>('SELECT * FROM hosting_accounts WHERE id = ?', [id]);
+  if (!account) return res.status(404).json({ error: 'Akun tidak ditemukan' });
+
+  if (user.role === 'customer' && account.customer_id !== user.id) return res.status(403).json({ error: 'Akses ditolak' });
+  if (user.role === 'reseller' && account.reseller_id !== user.id) return res.status(403).json({ error: 'Akses ditolak' });
 
   const extJson = extensions ? JSON.stringify(extensions) : account.php_extensions;
 
   run('UPDATE hosting_accounts SET php_version = ?, php_extensions = ? WHERE id = ?', [php_version || '8.3', extJson, id]);
-  recordAuditLog(user.id, user.role, req.ip || '127.0.0.1', 'CHANGE_PHP_VERSION', 'hosting_account', String(id), `PHP Version: ${php_version}`);
 
-  res.json({ success: true, php_version, extensions: JSON.parse(extJson) });
+  // Generate / Write .user.ini in /public_html
+  const { writeFile } = require('../services/fileManager');
+  let finalIni = ini_content;
+  if (!finalIni && options) {
+    finalIni = `; cPanel PHP INI Options for ${account.domain}
+upload_max_filesize = ${options.upload_max_filesize || '256M'}
+post_max_size = ${options.post_max_size || '256M'}
+memory_limit = ${options.memory_limit || '512M'}
+max_execution_time = ${options.max_execution_time || 300}
+max_input_time = ${options.max_input_time || 300}
+max_input_vars = ${options.max_input_vars || 5000}
+allow_url_fopen = ${options.allow_url_fopen ? 'On' : 'Off'}
+display_errors = ${options.display_errors ? 'On' : 'Off'}
+`;
+  }
+
+  if (finalIni) {
+    try {
+      writeFile(id, '/public_html/.user.ini', finalIni);
+    } catch (e) {
+      console.error('Failed to write .user.ini:', e);
+    }
+  }
+
+  recordAuditLog(user.id, user.role, req.ip || '127.0.0.1', 'CHANGE_PHP_VERSION', 'hosting_account', String(id), `PHP Version: ${php_version}, ionCube: ${extensions?.includes('ioncube') ? 'Yes' : 'No'}`);
+
+  res.json({
+    success: true,
+    php_version: php_version || '8.3',
+    extensions: JSON.parse(extJson),
+    options: options || {},
+    ioncube_loaded: extensions?.includes('ioncube')
+  });
 });
 
 // Reissue Auto-SSL
